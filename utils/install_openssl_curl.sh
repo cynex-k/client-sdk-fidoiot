@@ -1,4 +1,5 @@
 OPENSSL_ROOT=/opt/openssl
+OPENSSL_VER="3.0.14"
 CURL_ROOT=/opt/curl
 CURL_VER="8.8.0"
 CURL_LINK="https://curl.se/download/curl-8.8.0.tar.gz --no-check-certificate"
@@ -22,7 +23,7 @@ install()
     make -j$(nproc)
     make install
 
-    grep -qxF '$OPENSSL_ROOT/lib64/' /etc/ld.so.conf.d/libc.conf || echo $OPENSSL_ROOT/lib64/ | sudo tee -a /etc/ld.so.conf.d/libc.conf
+    grep -qxF '$OPENSSL_ROOT/lib64/' /etc/ld.so.conf.d/libc.conf || echo $OPENSSL_ROOT/lib64/ | tee -a /etc/ld.so.conf.d/libc.conf
     ldconfig
 
     echo "Build & Install Curl version : $CURL_VER"
