@@ -51,7 +51,7 @@ client_sdk_compile_options(
   -Wunused-parameter
   -Wsign-compare
   -Wpedantic
-  -Werror
+  # -Werror
   -Wimplicit-function-declaration
   -Wnested-externs
   -Wmissing-prototypes

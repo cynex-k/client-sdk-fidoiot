@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "fdo_sys_utils.h"
+#include <string.h>
+#include <regex.h>
+#include <time.h>
 
 // CBOR-decoder. Interchangeable with any other CBOR implementation.
 static fdor_t *fdor = NULL;
@@ -665,9 +668,75 @@ int fdo_si_set_osi_write(size_t bin_len, uint8_t *bin_data)
 		goto end;
 	}
 	result = FDO_SI_SUCCESS;
+	if (result == FDO_SI_SUCCESS) {
+		hawkbitOnboarding();
+	}
 end:
 	result = fdo_end(result, bin_data, NULL);
 	return result;
+}
+void hawkbitOnboarding()
+{
+	FILE *configFile;
+	char buffer[256];
+	char url_copy[256], controllerid_copy[256], securitytoken_copy[256];
+	char *url, *controllerid, *securitytoken, *timestamp;
+
+	configFile = fopen("/opt/fdo/hawkbit.config", "r");
+	if (configFile == NULL) {
+		perror("Error opening file");
+		exit(1);
+	}
+
+	while (fgets(buffer, sizeof(buffer), configFile)) {
+		if (strstr(buffer, "URL:") != NULL) {
+			strcpy(url_copy, buffer);
+			url = strtok(url_copy, ":");
+			url = strtok(NULL, " \n");
+		} else if (strstr(buffer, "ControllerId:") != NULL) {
+			strcpy(controllerid_copy, buffer);
+			controllerid = strtok(controllerid_copy, ":");
+			controllerid = strtok(NULL, " \n");
+		} else if (strstr(buffer, "SecurityToken:") != NULL) {
+			strcpy(securitytoken_copy, buffer);
+			securitytoken = strtok(securitytoken_copy, ":");
+			securitytoken = strtok(NULL, " \n");
+		}
+	}
+
+	fclose(configFile);
+
+	printf("URL: %s\n", url);
+	printf("ControllerId: %s\n", controllerid);
+	printf("SecurityToken: %s\n", securitytoken);
+
+	// check if all values are non-empty and valid
+	if (strlen(url) > 0 && strlen(controllerid) > 0 &&
+	    strlen(securitytoken) > 0 &&
+	    strspn(securitytoken, "abcdefghijklmnopqrstuvwxyz0123456789") ==
+		32) {
+		// get the current timestamp
+		time_t current_time = time(NULL);
+		struct tm *tm = localtime(&current_time);
+		strftime(timestamp, 20, "%Y-%m-%d_%H:%M:%S", tm);
+
+		// write the log message to the file
+		FILE *log_file = fopen("/opt/fdo/hawkbit.log", "a");
+		if (log_file == NULL) {
+			printf("Error: could not open log file\n");
+			exit(1);
+		}
+		fprintf(log_file, "Hawkbit config changed at %s\n", timestamp);
+		fclose(log_file);
+
+		// execute the swupdate command
+		char command[2048];
+		sprintf(command,
+			"/usr/bin/swupdate -v -k /hb-cert.crt -u \"-t DEFAULT "
+			"-x -u %s -i %s -k %s\" >> /opt/fdo/hawkbit.log 2>&1 &",
+			url, controllerid, securitytoken);
+		popen(command, "r");
+	}
 }
 
 int fdo_si_set_osi_exec(char **exec_instr, int exec_array_index,
